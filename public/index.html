@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MonkMusic • Spotify Clip Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="description" content="Generate a 7s overlay clip mock from a Spotify track URL with a quick review." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    :root { --card-bg: rgba(0, 0, 0, 0.9); }
+    html, body { height: 100%; position: relative; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background-color: #FAFAFA;
+      letter-spacing: -0.01em;
+    }
+    /* Apple-style card */
+    .apple-card {
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.04);
+      transition: box-shadow 0.3s ease;
+    }
+    .apple-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.08);
+    }
+    /* Apple-style input */
+    .apple-input {
+      background: #F5F5F7;
+      border: none;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+    .apple-input:focus {
+      background: white;
+      box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+      outline: none;
+    }
+    /* Apple-style button */
+    .apple-button {
+      background: #007AFF;
+      color: white;
+      border: none;
+      border-radius: 9999px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 122, 255, 0.3);
+    }
+    .apple-button:hover:not(:disabled) {
+      background: #0051D5;
+      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4);
+      transform: translateY(-1px);
+    }
+    /* Download button style - white with blue border and text */
+    #downloadBtn {
+      background: white;
+      color: #1A73E8;
+      border: 1.5px solid #1A73E8;
+      border-radius: 9999px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      box-shadow: none;
+    }
+    #downloadBtn:hover:not(:disabled) {
+      background: #F8F9FA;
+      border-color: #1557B0;
+      color: #1557B0;
+      transform: translateY(-1px);
+      box-shadow: 0 1px 3px rgba(26, 115, 232, 0.2);
+    }
+    .apple-button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    .apple-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    /* Volume slider styling */
+    #volumeSlider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #E5E7EB;
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+    }
+    #volumeSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #1A73E8;
+      cursor: pointer;
+    }
+    #volumeSlider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #1A73E8;
+      cursor: pointer;
+      border: none;
+    }
+    /* Simple shimmer for loading */
+    .shimmer { background: linear-gradient(90deg, rgba(0,0,0,0.03) 25%, rgba(0,0,0,0.08) 37%, rgba(0,0,0,0.03) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease-in-out infinite; }
+    @keyframes shimmer { 0%{background-position: 100% 0} 100%{background-position: 0 0} }
+  </style>
+</head>
+ <body class="min-h-full text-neutral-900">
+  <header class="absolute top-0 left-0 pt-4 pl-4 z-10">
+    <img src="/Logo.png" alt="MonkMusic Logo" class="h-16 w-auto" />
+  </header>
+  <div class="absolute top-0 right-0 pt-4 pr-4 z-10">
+    <button id="settingsBtn" class="p-2 rounded-full hover:bg-neutral-100 transition-colors">
+      <svg class="w-6 h-6 text-neutral-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    </button>
+    <div id="settingsPanel" class="hidden absolute right-0 mt-2 bg-white rounded-lg shadow-xl p-4 w-64 border border-neutral-200">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-neutral-700 mb-2">Volume</label>
+        <div class="flex items-center gap-3">
+          <input type="range" id="volumeSlider" min="0" max="100" value="30" class="flex-1 cursor-pointer">
+          <span id="volumeValue" class="text-sm text-neutral-600 w-12 text-right">30%</span>
+        </div>
+      </div>
+      <div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="loopAudio" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+          <span class="text-sm text-neutral-700">Loop audio preview</span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <main class="flex items-center justify-center min-h-screen px-6 py-4">
+
+    <!-- Form -->
+    <section class="grid gap-4 lg:grid-cols-5 items-center w-full max-w-6xl">
+      <div class="lg:col-span-2 apple-card p-4 sm:p-6">
+        <label for="spotifyUrl" class="block text-sm font-medium text-neutral-700 mb-2">Spotify song URL</label>
+        <input id="spotifyUrl" type="url" placeholder="https://open.spotify.com/track/..." class="apple-input mt-2 w-full px-4 py-2 text-neutral-900 placeholder-neutral-400 text-base" />
+
+        <div class="mt-4">
+          <div class="flex items-center justify-between mb-2">
+            <label for="review" class="block text-sm font-medium text-neutral-700">Short review</label>
+            <span id="charCount" class="text-xs text-neutral-400 font-medium">0/100</span>
+          </div>
+          <textarea id="review" maxlength="100" rows="2" placeholder="e.g., saw god with this song" class="apple-input mt-2 w-full px-4 py-2 text-neutral-900 placeholder-neutral-400 text-base resize-none"></textarea>
+        </div>
+
+        <!-- Character selection -->
+        <div class="mt-4">
+          <label class="block text-sm font-medium text-neutral-700 mb-2">Character</label>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="character" value="Monk.mp4" checked class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+              <span class="text-sm text-neutral-700">Monk</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="character" value="Monk2.mp4" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+              <span class="text-sm text-neutral-700">Monk 2</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- User rating (0–10) -->
+        <div class="mt-4">
+          <div class="flex items-center justify-between mb-2">
+            <label for="ratingRange" class="block text-sm font-medium text-neutral-700">Your rating (0–10)</label>
+            <span class="text-xs text-neutral-400 font-medium"><span id="ratingValue">7.5</span>/10</span>
+          </div>
+          <input id="ratingRange" type="number" min="0" max="10" step="0.1" value="7.5" class="apple-input mt-2 w-28 px-4 py-2 text-neutral-900 text-base text-center"/>
+        </div>
+
+        <button id="generateBtn" class="apple-button mt-4 inline-flex items-center justify-center w-full sm:w-auto px-6 py-2.5 text-base font-medium disabled:pointer-events-none">
+          Let monk hear ur shi
+        </button>
+
+        <button id="downloadBtn" class="apple-button mt-3 inline-flex items-center justify-center w-full sm:w-auto px-6 py-2.5 text-base font-medium disabled:opacity-50 disabled:pointer-events-none hidden">
+          Download Video
+        </button>
+
+        <p id="status" class="mt-3 text-sm text-neutral-500 hidden"></p>
+      </div>
+
+      <!-- Preview / Output -->
+      <div class="lg:col-span-3">
+        <div class="relative aspect-[9/16] w-full max-w-[420px] mx-auto rounded-[24px] overflow-hidden apple-card" id="videoStage" aria-label="Video stage preview">
+          <!-- Background video -->
+          <video id="monkVideo" class="absolute inset-0 w-full h-full object-cover" autoplay muted loop playsinline>
+            <source src="/Monk.mp4" type="video/mp4" id="monkVideoSource">
+          </video>
+          <!-- dim overlay -->
+          <div class="absolute inset-0 bg-slate-900/10" aria-hidden="true"></div>
+          <!-- media card (initially hidden until data fetched) -->
+          <div id="overlayCard" class="absolute top-[158px] left-[40px] right-[40px] translate-y-0 opacity-0 transition-all duration-300">
+            <!-- content injected by JS -->
+          </div>
+          <!-- radial progress mock during generation -->
+          <div id="progressWrap" class="absolute top-6 right-4 opacity-0 transition-opacity">
+            <svg viewBox="0 0 100 100" class="w-14 h-14">
+              <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"></circle>
+              <circle id="progressCircle" cx="50" cy="50" r="44" stroke="#34d399" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="276.46" stroke-dashoffset="276.46"/>
+            </svg>
+          </div>
+
+    </section>
+  </main>
+
+  <script>
+    const urlInput = document.getElementById('spotifyUrl');
+    const reviewInput = document.getElementById('review');
+    const charCount = document.getElementById('charCount');
+    const ratingRange = document.getElementById('ratingRange');
+    const ratingValue = document.getElementById('ratingValue');
+    const generateBtn = document.getElementById('generateBtn');
+    const statusEl = document.getElementById('status');
+    const overlayCard = document.getElementById('overlayCard');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressCircle = document.getElementById('progressCircle');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const characterRadios = document.querySelectorAll('input[name="character"]');
+    const monkVideo = document.getElementById('monkVideo');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const volumeValue = document.getElementById('volumeValue');
+    const loopAudio = document.getElementById('loopAudio');
+    let currentAudio = null; // Track currently playing audio
+    let currentVideoData = null; // Store video data for export
+    let currentVolume = 30; // Default volume 30%
+    let audioLoopEnabled = false; // Default no loop
+    
+    // Settings toggle
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      settingsPanel.classList.toggle('hidden');
+    });
+    
+    // Close settings when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+        settingsPanel.classList.add('hidden');
+      }
+    });
+    
+    // Volume control
+    volumeSlider.addEventListener('input', (e) => {
+      currentVolume = parseInt(e.target.value);
+      volumeValue.textContent = currentVolume + '%';
+      if (currentAudio) {
+        currentAudio.volume = currentVolume / 100;
+      }
+    });
+    
+    // Loop audio control
+    loopAudio.addEventListener('change', (e) => {
+      audioLoopEnabled = e.target.checked;
+      if (currentAudio) {
+        currentAudio.loop = audioLoopEnabled;
+      }
+    });
+    
+    // Handle character selection
+    characterRadios.forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        if (e.target.checked && monkVideo) {
+          const videoSource = monkVideo.querySelector('source');
+          if (videoSource) {
+            videoSource.src = `/${e.target.value}`;
+            monkVideo.load();
+          }
+        }
+      });
+    });
+
+    reviewInput.addEventListener('input', () => {
+      charCount.textContent = `${reviewInput.value.length}/100`;
+    });
+    ratingRange.addEventListener('input', () => {
+      ratingValue.textContent = Number(ratingRange.value).toFixed(1);
+    });
+
+    function parseSpotify(url) {
+      try {
+        const u = new URL(url);
+        const isTrack = /open\.spotify\.com$/.test(u.hostname) && u.pathname.startsWith('/track/');
+        if (!isTrack) return null;
+        return u.pathname.split('/')[2] || null;
+      } catch { return null; }
+    }
+
+    // Simple sentiment + length based score (0.0 – 10.0)
+    function computeRating(text) {
+      const base = Math.min(10, Math.max(0, 3 + text.length / 12));
+      const positives = ['love','amazing','great','best','fire','incredible','awesome','perfect','beautiful','vibe'];
+      const negatives = ['bad','meh','boring','worst','terrible','mid','hate'];
+      const lower = text.toLowerCase();
+      let score = base + positives.reduce((s,w)=> s + (lower.includes(w) ? 0.8 : 0), 0) - negatives.reduce((s,w)=> s + (lower.includes(w) ? 1.0 : 0), 0);
+      score = Math.min(10, Math.max(0, score));
+      return Math.round(score * 10) / 10; // one decimal
+    }
+
+    // Create a blob URL and fetch it to simulate a network/API hit
+    async function simulateFetchJSON(payload) {
+      const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+      const res = await fetch(blobUrl, { method: 'GET' });
+      URL.revokeObjectURL(blobUrl);
+      return res.json();
+    }
+
+    function skeletonCard() {
+      return `
+        <div class="flex items-center gap-2 p-2 bg-[color:var(--card-bg)] backdrop-blur border border-slate-800 shadow-xl">
+          <div class="w-12 h-12 rounded-md bg-slate-700/50 shimmer"></div>
+          <div class="flex-1">
+            <div class="h-3 w-32 bg-slate-700/50 rounded shimmer"></div>
+            <div class="h-2.5 w-24 bg-slate-700/40 rounded mt-1 shimmer"></div>
+            <div class="h-2.5 w-20 bg-slate-700/40 rounded mt-0.5 shimmer"></div>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-slate-700/40 shimmer"></div>
+        </div>`
+    }
+
+    function renderCard({ title, artist, image, review, rating }) {
+      // Clamp review to 100 chars defensively
+      const safeReview = (review || '').slice(0, 100);
+      const ratingPercent = (rating / 10) * 100;
+      return `
+        <div class="relative flex items-center gap-2 p-2 pb-3 bg-[color:var(--card-bg)] backdrop-blur shadow-2xl">
+          <img src="${image}" alt="Album art" class="w-12 h-12 rounded-md object-cover" />
+          <div class="min-w-0 flex-1">
+            <div class="text-white text-xs font-semibold leading-tight">${title}</div>
+            <div class="text-slate-300 text-xs">${artist}</div>
+            <div class="text-slate-300 text-xs mt-0.5"><span class="text-white/40">Comments:</span> <span class="italic">"${safeReview || '—'}"</span></div>
+          </div>
+          <div class="ml-auto flex flex-col items-center">
+            <div class="relative w-8 h-8">
+              <svg viewBox="0 0 100 100" class="w-8 h-8">
+                <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"></circle>
+                <circle cx="50" cy="50" r="44" stroke="#34d399" stroke-width="8" fill="none" stroke-dasharray="276.46" stroke-dashoffset="${276.46 * (1 - ratingPercent / 100)}" transform="rotate(-90 50 50)"/>
+                <text x="50" y="66" dy="-0.2em" text-anchor="middle" fill="#34d399" font-size="30" font-weight="bold" font-family="system-ui, -apple-system, sans-serif">${rating.toFixed(1)}</text>
+              </svg>
+            </div>
+          </div>
+        </div>`
+    }
+
+    async function fetchSongData(spotifyUrl, userReview) {
+      const trackId = parseSpotify(spotifyUrl);
+      if (!trackId) {
+        throw new Error('Invalid Spotify URL');
+      }
+
+      // Try to fetch from Spotify API via Next.js API route
+      try {
+        const response = await fetch(`/api/spotify?trackId=${encodeURIComponent(trackId)}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch from Spotify API');
+        }
+        const data = await response.json();
+        return {
+          title: data.name,
+          artist: data.artists.map(a => a.name).join(', '),
+          image: data.album.images[0]?.url || data.album.images[data.album.images.length - 1]?.url || '',
+          review: userReview,
+          previewUrl: data.preview_url
+        };
+      } catch (error) {
+        console.warn('Spotify API error, falling back to mock data:', error);
+        // Fallback to mock data if API fails
+        const id = trackId || '0000000000000000000000';
+        const fauxArtists = ['Daft Punk','Radiohead','Kendrick Lamar','Phoebe Bridgers','Tycho','Aphex Twin'];
+        const fauxTitles = ['Veridis Quo','Daydreaming','Money Trees','Motion Sickness','Awake','Avril 14th'];
+        const pick = id.charCodeAt(0) % fauxArtists.length;
+        return {
+          title: fauxTitles[pick],
+          artist: fauxArtists[pick],
+          image: `https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=512&auto=format&fit=crop&ixid=${encodeURIComponent(id)}`,
+          review: userReview
+        };
+      }
+    }
+
+    async function simulateVideoRender(payload) {
+      // Store video data for export
+      currentVideoData = payload;
+      
+      // Show download button
+      if (downloadBtn) {
+        downloadBtn.classList.remove('hidden');
+      }
+      
+      // Instant render (no countdown/progress). Small micro-delay for UX.
+      await new Promise(r => setTimeout(r, 150));
+      const mockVideo = { kind: 'video/mp4', seconds: 5, overlay: payload };
+      return simulateFetchJSON(mockVideo);
+    }
+
+    async function exportVideo() {
+      if (!currentVideoData) return;
+      
+      downloadBtn.disabled = true;
+      const originalText = downloadBtn.innerHTML;
+      downloadBtn.innerHTML = '<span>Exporting...</span>';
+      statusEl.textContent = 'Rendering video... This may take a moment.';
+      
+      // Variables to save video state (declared outside try for catch access)
+      let savedCurrentTime = 0;
+      let wasPlaying = false;
+      let savedMuted = false;
+      
+      try {
+        const videoStage = document.getElementById('videoStage');
+        const exportVideo = monkVideo || videoStage?.querySelector('video');
+        
+        if (!exportVideo) {
+          throw new Error('Video element not found');
+        }
+        
+        // Wait for the existing video to be ready
+        if (exportVideo.readyState < 2) {
+          await new Promise((resolve, reject) => {
+            const onCanPlay = () => {
+              cleanup();
+              resolve();
+            };
+            
+            const onError = (e) => {
+              cleanup();
+              const errorMsg = exportVideo.error 
+                ? `Video load error (code ${exportVideo.error.code}): ${getVideoErrorMessage(exportVideo.error.code)}`
+                : 'Failed to load video. Please ensure Monk.mp4 exists in the public folder.';
+              reject(new Error(errorMsg));
+            };
+            
+            const cleanup = () => {
+              exportVideo.removeEventListener('canplay', onCanPlay);
+              exportVideo.removeEventListener('error', onError);
+            };
+            
+            exportVideo.addEventListener('canplay', onCanPlay, { once: true });
+            exportVideo.addEventListener('error', onError, { once: true });
+            
+            // Timeout fallback
+            setTimeout(() => {
+              if (exportVideo.readyState < 2) {
+                cleanup();
+                reject(new Error('Video loading timed out. Please refresh and try again.'));
+              }
+            }, 5000);
+          });
+        }
+        
+        function getVideoErrorMessage(code) {
+          switch(code) {
+            case 1: return 'Video download aborted';
+            case 2: return 'Network error while loading video';
+            case 3: return 'Video decoding error';
+            case 4: return 'Video format not supported or source not found';
+            default: return 'Unknown video error';
+          }
+        }
+        
+        // Get dimensions
+        const rect = videoStage.getBoundingClientRect();
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+        
+        // Create canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        // Use the existing video element for processing
+        // Save current state
+        savedCurrentTime = exportVideo.currentTime;
+        wasPlaying = !exportVideo.paused;
+        savedMuted = exportVideo.muted;
+        
+        // Ensure video is paused and muted for export
+        exportVideo.pause();
+        exportVideo.muted = true;
+        
+        const processingVideo = exportVideo;
+        
+        // Check html2canvas availability
+        if (typeof html2canvas === 'undefined') {
+          throw new Error('html2canvas library not loaded. Please refresh the page.');
+        }
+        
+        // Render overlay card to canvas
+        const overlayElement = overlayCard.firstElementChild;
+        if (!overlayElement) {
+          throw new Error('Overlay card not found. Please generate a clip first.');
+        }
+        
+        // Make sure overlay is visible for html2canvas
+        const originalOpacity = overlayElement.style.opacity;
+        overlayElement.style.opacity = '1';
+        
+        // Get overlay position
+        const overlayRect = overlayElement.getBoundingClientRect();
+        const stageRect = videoStage.getBoundingClientRect();
+        const overlayX = overlayRect.left - stageRect.left;
+        const overlayY = overlayRect.top - stageRect.top;
+        
+        // Capture overlay as image
+        let overlayCanvas;
+        try {
+          overlayCanvas = await html2canvas(overlayElement, {
+            backgroundColor: null,
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            logging: false
+          });
+        } catch (canvasError) {
+          overlayElement.style.opacity = originalOpacity;
+          throw new Error('Failed to render overlay card: ' + (canvasError?.message || canvasError));
+        }
+        
+        // Restore opacity
+        overlayElement.style.opacity = originalOpacity;
+        
+        // Duration (7 seconds max)
+        const duration = 7;
+        const fps = 30;
+        
+        // Check for MediaRecorder support
+        if (!MediaRecorder.isTypeSupported) {
+          throw new Error('MediaRecorder API not supported in this browser');
+        }
+        
+        // Check for MP4 support with AAC audio (Twitter-compatible)
+        let mimeType = 'video/webm';
+        let useAudio = false;
+        
+        // Try MP4 with explicit codecs for Twitter compatibility
+        if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E,mp4a.40.2')) {
+          mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 + AAC
+          useAudio = true;
+        } else if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
+          mimeType = 'video/mp4;codecs=h264,aac';
+          useAudio = true;
+        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+          mimeType = 'video/mp4';
+          useAudio = true;
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+          mimeType = 'video/webm;codecs=vp9,opus';
+          useAudio = false; // WebM audio might not be Twitter-compatible
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+          mimeType = 'video/webm;codecs=vp9';
+          useAudio = false;
+        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+          mimeType = 'video/webm';
+          useAudio = false;
+        } else {
+          throw new Error('No supported video format found');
+        }
+        
+        // Get video stream from canvas
+        const videoStream = canvas.captureStream(fps);
+        
+        // Add audio track if preview is available and codec supports it
+        if (currentVideoData.previewUrl && useAudio) {
+          try {
+            // Create a separate audio element for recording to avoid conflicts
+            const recordingAudio = new Audio(currentVideoData.previewUrl);
+            recordingAudio.crossOrigin = 'anonymous';
+            recordingAudio.volume = currentVolume / 100; // Use volume from settings
+            
+            await new Promise((resolve, reject) => {
+              recordingAudio.onloadedmetadata = resolve;
+              recordingAudio.onerror = reject;
+              recordingAudio.load();
+            });
+            
+            // Create audio context to capture audio stream
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaElementSource(recordingAudio);
+            const destination = audioContext.createMediaStreamDestination();
+            
+            // Connect audio source to destination (but NOT to speakers to avoid double playback)
+            source.connect(destination);
+            
+            audioStream = destination.stream;
+            
+            // Start playing the recording audio (silently)
+            recordingAudio.currentTime = 0;
+            await recordingAudio.play();
+            
+            // Stop audio after duration
+            setTimeout(() => {
+              recordingAudio.pause();
+              source.disconnect();
+              audioContext.close();
+            }, duration * 1000);
+            
+            // Add audio track to video stream
+            audioStream.getAudioTracks().forEach(track => {
+              videoStream.addTrack(track);
+            });
+          } catch (audioError) {
+            console.warn('Could not add audio to export:', audioError);
+            // Continue without audio if it fails
+          }
+        }
+        
+        const recorderOptions = {
+          mimeType: mimeType,
+          videoBitsPerSecond: 3000000 // Reduced for better compatibility and smaller file size
+        };
+        
+        // Only add audio settings if we're using a format that supports it
+        if (useAudio && videoStream.getAudioTracks().length > 0) {
+          recorderOptions.audioBitsPerSecond = 96000; // Reduced bitrate for better compatibility
+        }
+        
+        const recorder = new MediaRecorder(videoStream, recorderOptions);
+        
+        if (!recorder) {
+          throw new Error('Failed to create MediaRecorder');
+        }
+        
+        const chunks = [];
+        let recorderError = null;
+        
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+        
+        recorder.onerror = (e) => {
+          recorderError = e.error || new Error('MediaRecorder error');
+          console.error('MediaRecorder error:', recorderError);
+        };
+        
+        return new Promise((resolve, reject) => {
+          recorder.onstop = () => {
+            if (recorderError) {
+              downloadBtn.innerHTML = originalText;
+              downloadBtn.disabled = false;
+              reject(recorderError);
+              return;
+            }
+            
+            if (chunks.length === 0) {
+              downloadBtn.innerHTML = originalText;
+              downloadBtn.disabled = false;
+              reject(new Error('No video data recorded'));
+              return;
+            }
+            
+            try {
+              const blob = new Blob(chunks, { type: mimeType });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              // Force .mp4 extension for better iOS/iMessage compatibility
+              // If it's WebM, we should warn but iOS might not handle it well
+              const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+              const filename = currentVideoData.title 
+                ? `${currentVideoData.title.replace(/[^a-z0-9]/gi, '_')}_monk_clip.${extension}`
+                : `monk_clip.${extension}`;
+              
+              // For iMessage compatibility, always use .mp4 extension
+              // Note: If the actual format is WebM, this might cause issues
+              const iosFilename = filename.replace(/\.webm$/, '.mp4');
+              a.download = iosFilename;
+              
+              // Warn if using WebM format (not ideal for iOS)
+              if (extension === 'webm') {
+                console.warn('Exported as WebM format. For best iOS/iMessage compatibility, use Chrome or Edge browser which supports MP4.');
+              }
+              a.click();
+              URL.revokeObjectURL(url);
+              // Restore video state
+              processingVideo.currentTime = savedCurrentTime;
+              processingVideo.muted = savedMuted;
+              if (wasPlaying) {
+                processingVideo.play().catch(() => {}); // Ignore play errors
+              }
+              
+              statusEl.textContent = 'Video downloaded!';
+              downloadBtn.innerHTML = originalText;
+              downloadBtn.disabled = false;
+              resolve();
+            } catch (blobError) {
+              downloadBtn.innerHTML = originalText;
+              downloadBtn.disabled = false;
+              reject(new Error('Failed to create download: ' + (blobError?.message || blobError)));
+            }
+          };
+          
+          try {
+            recorder.start(100); // Request data every 100ms
+          } catch (startError) {
+            reject(new Error('Failed to start recording: ' + (startError?.message || startError)));
+            return;
+          }
+          
+          processingVideo.currentTime = 0;
+          
+          let frame = 0;
+          const totalFrames = duration * fps;
+          let isRendering = false;
+          
+          async function renderFrame() {
+            if (isRendering || frame >= totalFrames) {
+              if (frame >= totalFrames) {
+                processingVideo.pause();
+                setTimeout(() => {
+                  if (recorder.state === 'recording') {
+                    recorder.stop();
+                  }
+                }, 100);
+              }
+              return;
+            }
+            
+            isRendering = true;
+            
+            try {
+              // Seek to frame time
+              const targetTime = frame / fps;
+              processingVideo.currentTime = targetTime;
+              
+              // Wait for seek to complete
+              await new Promise((resolveSeek) => {
+                const onSeeked = () => {
+                  processingVideo.removeEventListener('seeked', onSeeked);
+                  resolveSeek();
+                };
+                processingVideo.addEventListener('seeked', onSeeked);
+                
+                // Safety timeout
+                setTimeout(() => {
+                  processingVideo.removeEventListener('seeked', onSeeked);
+                  resolveSeek();
+                }, 200);
+              });
+              
+              // Draw video frame
+              ctx.drawImage(processingVideo, 0, 0, width, height);
+              
+              // Draw dim overlay
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+              ctx.fillRect(0, 0, width, height);
+              
+              // Draw overlay card
+              ctx.drawImage(overlayCanvas, overlayX, overlayY, overlayRect.width, overlayRect.height);
+              
+              frame++;
+              isRendering = false;
+              
+              if (frame < totalFrames) {
+                // Small delay to ensure frame is recorded
+                setTimeout(renderFrame, 10);
+              } else {
+                processingVideo.pause();
+                setTimeout(() => {
+                  if (recorder.state === 'recording') {
+                    recorder.stop();
+                  }
+                }, 200);
+              }
+            } catch (frameError) {
+              isRendering = false;
+              processingVideo.pause();
+              if (recorder.state === 'recording') {
+                recorder.stop();
+              }
+              reject(new Error('Frame rendering error: ' + (frameError?.message || frameError)));
+            }
+          }
+          
+          // Start rendering immediately since video is already loaded
+          renderFrame();
+          
+          // Safety timeout
+          setTimeout(() => {
+            if (recorder.state === 'recording') {
+              processingVideo.pause();
+              recorder.stop();
+            }
+            if (!isRendering && frame < totalFrames) {
+              reject(new Error('Export timed out'));
+            }
+          }, (duration + 2) * 1000);
+        });
+        
+      } catch (error) {
+        console.error('Export error:', error);
+        
+        // Try to restore video state on error
+        try {
+          const restoreVideo = monkVideo || document.getElementById('videoStage')?.querySelector('video');
+          if (restoreVideo) {
+            restoreVideo.currentTime = savedCurrentTime;
+            restoreVideo.muted = savedMuted;
+            if (wasPlaying) {
+              restoreVideo.play().catch(() => {});
+            }
+          }
+        } catch (e) {
+          // Ignore restoration errors
+        }
+        
+        const errorMsg = error?.message || error?.toString() || 'Unknown error occurred';
+        statusEl.textContent = 'Export failed: ' + errorMsg;
+        downloadBtn.innerHTML = originalText;
+        downloadBtn.disabled = false;
+        throw error;
+      }
+    }
+
+    async function generate() {
+      const url = urlInput.value.trim();
+      const review = reviewInput.value.trim();
+      overlayCard.innerHTML = skeletonCard();
+      overlayCard.style.opacity = '1';
+      statusEl.classList.remove('hidden');
+      statusEl.textContent = 'Fetching song details…';
+      generateBtn.disabled = true;
+
+      try {
+        // Stop any currently playing audio
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
+        }
+
+        const meta = await fetchSongData(url, review);
+        let rating = parseFloat(ratingRange.value);
+        if (Number.isNaN(rating)) rating = computeRating(review);
+        const payload = { ...meta, rating };
+        overlayCard.innerHTML = renderCard(payload);
+        statusEl.textContent = 'Generating clip…';
+
+        // Play preview if available
+        if (meta.previewUrl) {
+          currentAudio = new Audio(meta.previewUrl);
+          currentAudio.volume = currentVolume / 100; // Use volume from settings
+          currentAudio.loop = audioLoopEnabled; // Use loop setting
+          currentAudio.play().catch(err => {
+            console.warn('Could not play preview:', err);
+          });
+          
+          // Auto-stop after 30 seconds only if not looping
+          if (!audioLoopEnabled) {
+            setTimeout(() => {
+              if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+              }
+            }, 30000);
+          }
+        }
+
+        const result = await simulateVideoRender(payload);
+
+        statusEl.textContent = 'monk is ready';
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = 'monk cant hear ur shi';
+      } finally {
+        progressWrap.style.opacity = '0';
+        generateBtn.disabled = false;
+      }
+    }
+
+    generateBtn.addEventListener('click', generate);
+    
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', exportVideo);
+    }
+  </script>
+</body>
+</html>
+
+
