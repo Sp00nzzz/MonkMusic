@@ -298,12 +298,34 @@
         if (e.target.checked && monkVideo) {
           const videoSource = monkVideo.querySelector('source');
           if (videoSource) {
-            videoSource.src = `/${e.target.value}`;
+            let videoFile = e.target.value;
+            
+            // Randomize between Monk.mp4 and Monk1(Ver2).mp4 when Monk is selected
+            if (videoFile === 'Monk.mp4') {
+              const monkVariants = ['Monk.mp4', 'Monk1(Ver2).mp4'];
+              videoFile = monkVariants[Math.floor(Math.random() * monkVariants.length)];
+            }
+            
+            videoSource.src = `/${videoFile}`;
             monkVideo.load();
           }
         }
       });
     });
+    
+    // Randomize Monk video on initial load
+    if (monkVideo) {
+      const monkRadio = document.querySelector('input[name="character"][value="Monk.mp4"]');
+      if (monkRadio && monkRadio.checked) {
+        const videoSource = monkVideo.querySelector('source');
+        if (videoSource) {
+          const monkVariants = ['Monk.mp4', 'Monk1(Ver2).mp4'];
+          const randomVideo = monkVariants[Math.floor(Math.random() * monkVariants.length)];
+          videoSource.src = `/${randomVideo}`;
+          monkVideo.load();
+        }
+      }
+    }
 
     reviewInput.addEventListener('input', () => {
       charCount.textContent = `${reviewInput.value.length}/100`;
@@ -407,7 +429,7 @@
               <svg viewBox="0 0 100 100" class="w-8 h-8">
                 <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"></circle>
                 <circle cx="50" cy="50" r="44" stroke="#34d399" stroke-width="8" fill="none" stroke-dasharray="276.46" stroke-dashoffset="${276.46 * (1 - ratingPercent / 100)}" transform="rotate(-90 50 50)"/>
-                <text x="50" y="50" dy="-0.2em" text-anchor="middle" fill="#34d399" font-size="20" font-weight="bold" font-family="system-ui, -apple-system, sans-serif">${rating.toFixed(1)}</text>
+                <text x="50" y="67" dy="-0.2em" text-anchor="middle" fill="#34d399" font-size="30" font-weight="bold" font-family="system-ui, -apple-system, sans-serif">${rating.toFixed(1)}</text>
               </svg>
             </div>
           </div>
