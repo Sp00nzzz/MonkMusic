@@ -295,9 +295,16 @@
     function parseSpotify(url) {
       try {
         const u = new URL(url);
-        const isTrack = /open\.spotify\.com$/.test(u.hostname) && u.pathname.startsWith('/track/');
+        // Match open.spotify.com (with or without www, and handle various subdomains)
+        const isTrack = /(?:www\.)?open\.spotify\.com/.test(u.hostname) && u.pathname.startsWith('/track/');
         if (!isTrack) return null;
-        return u.pathname.split('/')[2] || null;
+        // Split pathname and get the track ID, remove any trailing slashes or fragments
+        const pathParts = u.pathname.split('/').filter(p => p);
+        const trackIndex = pathParts.indexOf('track');
+        if (trackIndex === -1 || trackIndex === pathParts.length - 1) return null;
+        const trackId = pathParts[trackIndex + 1];
+        // Clean the track ID - remove any query params or fragments that might have been included
+        return trackId ? trackId.split('?')[0].split('#')[0] : null;
       } catch { return null; }
     }
 
@@ -360,16 +367,26 @@
     async function fetchSongData(spotifyUrl, userReview) {
       const trackId = parseSpotify(spotifyUrl);
       if (!trackId) {
+        console.error('Failed to parse Spotify URL:', spotifyUrl);
         throw new Error('Invalid Spotify URL');
       }
 
       // Try to fetch from Spotify API via Next.js API route
       try {
+        console.log('Fetching track data for ID:', trackId);
         const response = await fetch(`/api/spotify?trackId=${encodeURIComponent(trackId)}`);
         if (!response.ok) {
-          throw new Error('Failed to fetch from Spotify API');
+          const errorText = await response.text();
+          console.error('Spotify API response error:', response.status, errorText);
+          throw new Error(`Failed to fetch from Spotify API: ${response.status}`);
         }
         const data = await response.json();
+        console.log('Received track data:', { name: data.name, artist: data.artists?.[0]?.name, hasPreview: !!data.preview_url });
+        
+        if (!data.name || !data.artists || data.artists.length === 0) {
+          throw new Error('Invalid track data received from Spotify API');
+        }
+        
         return {
           title: data.name,
           artist: data.artists.map(a => a.name).join(', '),
