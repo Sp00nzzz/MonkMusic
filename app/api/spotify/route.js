@@ -16,6 +16,9 @@ export async function GET(request) {
     );
   }
 
+  // Log the requested track ID for debugging
+  console.log('[Spotify API] Requested track ID:', trackId);
+
   // Get Spotify credentials from environment variables
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
@@ -71,6 +74,25 @@ export async function GET(request) {
     }
 
     const trackData = await trackResponse.json();
+
+    // Verify that the returned track ID matches what we requested
+    // This ensures we got the exact track, not a different version or remix
+    if (trackData.id && trackData.id !== trackId) {
+      console.error('[Spotify API] Track ID mismatch!', {
+        requested: trackId,
+        received: trackData.id,
+        name: trackData.name,
+        artists: trackData.artists?.map(a => a.name)
+      });
+      // Still return the data, but log the mismatch for debugging
+    } else {
+      console.log('[Spotify API] Track data retrieved successfully:', {
+        id: trackData.id,
+        name: trackData.name,
+        artists: trackData.artists?.map(a => a.name),
+        hasPreview: !!trackData.preview_url
+      });
+    }
 
     // If Spotify's own preview_url is missing, try spotify-preview-finder as a fallback
     try {

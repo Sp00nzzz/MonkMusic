@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MonkMusic • Spotify Clip Generator</title>
+  <title>monkmusic: monk listens to ur music</title>
   <link rel="icon" type="image/png" href="/favicon.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="description" content="Generate a 7s overlay clip mock from a Spotify track URL with a quick review." />
   
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="MonkMusic • Spotify Clip Generator" />
+  <meta property="og:title" content="monkmusic: monk listens to ur music" />
   <meta property="og:description" content="Generate a 7s overlay clip mock from a Spotify track URL with a quick review." />
   <meta property="og:image" content="/socialsharing.png" />
   
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="MonkMusic • Spotify Clip Generator" />
+  <meta name="twitter:title" content="monkmusic: monk listens to ur music" />
   <meta name="twitter:description" content="Generate a 7s overlay clip mock from a Spotify track URL with a quick review." />
   <meta name="twitter:image" content="/socialsharing.png" />
   
@@ -307,18 +307,48 @@
 
     function parseSpotify(url) {
       try {
-        const u = new URL(url);
+        // Trim whitespace and clean the URL
+        const cleanUrl = url.trim();
+        if (!cleanUrl) return null;
+        
+        const u = new URL(cleanUrl);
         // Match open.spotify.com (with or without www, and handle various subdomains)
         const isTrack = /(?:www\.)?open\.spotify\.com/.test(u.hostname) && u.pathname.startsWith('/track/');
-        if (!isTrack) return null;
+        if (!isTrack) {
+          console.warn('Invalid Spotify URL format:', cleanUrl);
+          return null;
+        }
+        
         // Split pathname and get the track ID, remove any trailing slashes or fragments
         const pathParts = u.pathname.split('/').filter(p => p);
         const trackIndex = pathParts.indexOf('track');
-        if (trackIndex === -1 || trackIndex === pathParts.length - 1) return null;
+        if (trackIndex === -1 || trackIndex === pathParts.length - 1) {
+          console.warn('Could not find track ID in path:', u.pathname);
+          return null;
+        }
+        
         const trackId = pathParts[trackIndex + 1];
+        if (!trackId) {
+          console.warn('Track ID is empty');
+          return null;
+        }
+        
         // Clean the track ID - remove any query params or fragments that might have been included
-        return trackId ? trackId.split('?')[0].split('#')[0] : null;
-      } catch { return null; }
+        const cleanedId = trackId.split('?')[0].split('#')[0].trim();
+        
+        // Spotify track IDs are typically 22 characters (base62 encoded)
+        // Validate it looks like a valid track ID
+        if (cleanedId.length < 20 || cleanedId.length > 25) {
+          console.warn('Track ID length looks invalid:', cleanedId, cleanedId.length);
+          // Still return it, but log the warning
+        }
+        
+        console.log('Parsed Spotify URL:', { original: cleanUrl, trackId: cleanedId });
+        return cleanedId || null;
+      } catch (error) {
+        console.error('Error parsing Spotify URL:', url, error);
+        return null;
+      }
     }
 
     // Simple sentiment + length based score (0.0 – 10.0)
@@ -394,10 +424,23 @@
           throw new Error(`Failed to fetch from Spotify API: ${response.status}`);
         }
         const data = await response.json();
-        console.log('Received track data:', { name: data.name, artist: data.artists?.[0]?.name, hasPreview: !!data.preview_url });
+        console.log('Received track data:', { 
+          name: data.name, 
+          artist: data.artists?.[0]?.name, 
+          trackId: data.id,
+          requestedId: trackId,
+          hasPreview: !!data.preview_url 
+        });
         
         if (!data.name || !data.artists || data.artists.length === 0) {
           throw new Error('Invalid track data received from Spotify API');
+        }
+        
+        // Verify the track ID matches what we requested
+        // This ensures we got the exact track requested, not a remix or alternate version
+        if (data.id && data.id !== trackId) {
+          console.error(`CRITICAL: Track ID mismatch! Requested: ${trackId}, Received: ${data.id}`);
+          throw new Error(`Received wrong track (${data.id}) instead of requested track (${trackId}). This might be a remix or alternate version.`);
         }
         
         return {
