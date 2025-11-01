@@ -13,12 +13,14 @@
   <meta property="og:title" content="monkmusic: monk listens to ur music" />
   <meta property="og:description" content="Generate a 7s overlay clip mock from a Spotify track URL with a quick review." />
   <meta property="og:image" content="/socialsharing.png" />
+  <meta property="og:image:alt" content="monkmusic: monk listens to ur music" />
   
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="monkmusic: monk listens to ur music" />
   <meta name="twitter:description" content="Generate a 7s overlay clip mock from a Spotify track URL with a quick review." />
   <meta name="twitter:image" content="/socialsharing.png" />
+  <meta name="twitter:image:alt" content="monkmusic: monk listens to ur music" />
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -624,47 +626,76 @@
           throw new Error('MediaRecorder API not supported in this browser');
         }
         
-        // Check for MP4 support with AAC audio (Twitter-compatible)
-        let mimeType = 'video/webm';
-        let useAudio = false;
+        // Prioritize iMessage-compatible codecs:
+        // Video: H.264 (AVC) or HEVC (H.265)
+        // Audio: AAC or MP3
+        let mimeType = null;
+        let useAudio = true;
         
-        // Try MP4 with explicit codecs for Twitter compatibility
+        // Try iMessage-compatible formats first (H.264 + AAC)
         if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E,mp4a.40.2')) {
-          mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2'; // H.264 + AAC
-          useAudio = true;
+          // H.264 Baseline Profile + AAC
+          mimeType = 'video/mp4;codecs=avc1.42E01E,mp4a.40.2';
+        } else if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.640028,mp4a.40.2')) {
+          // H.264 High Profile + AAC
+          mimeType = 'video/mp4;codecs=avc1.640028,mp4a.40.2';
         } else if (MediaRecorder.isTypeSupported('video/mp4;codecs=h264,aac')) {
           mimeType = 'video/mp4;codecs=h264,aac';
-          useAudio = true;
+        } else if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E')) {
+          // H.264 only, audio will be added separately
+          mimeType = 'video/mp4;codecs=avc1.42E01E';
         } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+          // Generic MP4 (usually H.264)
           mimeType = 'video/mp4';
-          useAudio = true;
-        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-          mimeType = 'video/webm;codecs=vp9,opus';
-          useAudio = false; // WebM audio might not be Twitter-compatible
-        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-          mimeType = 'video/webm;codecs=vp9';
-          useAudio = false;
-        } else if (MediaRecorder.isTypeSupported('video/webm')) {
-          mimeType = 'video/webm';
-          useAudio = false;
+        } else if (MediaRecorder.isTypeSupported('video/quicktime;codecs=avc1')) {
+          // QuickTime H.264 (Safari)
+          mimeType = 'video/quicktime;codecs=avc1';
         } else {
-          throw new Error('No supported video format found');
+          // Fallback to WebM only if MP4/H.264 is completely unavailable
+          // Note: WebM won't work with iMessage
+          if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+            mimeType = 'video/webm;codecs=vp9,opus';
+            console.warn('⚠️ WebM format detected - not compatible with iMessage. Please use Chrome or Edge for iMessage-compatible MP4.');
+          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+            mimeType = 'video/webm;codecs=vp8,opus';
+            console.warn('⚠️ WebM format detected - not compatible with iMessage. Please use Chrome or Edge for iMessage-compatible MP4.');
+          } else if (MediaRecorder.isTypeSupported('video/webm')) {
+            mimeType = 'video/webm';
+            console.warn('⚠️ WebM format detected - not compatible with iMessage. Please use Chrome or Edge for iMessage-compatible MP4.');
+          } else {
+            throw new Error('No supported video format found. Please use Chrome or Edge browser for iMessage-compatible exports.');
+          }
         }
+        
+        console.log('Using video format:', mimeType, 'with audio:', useAudio);
         
         // Get video stream from canvas
         const videoStream = canvas.captureStream(fps);
         
-        // Add audio track if preview is available and codec supports it
-        if (currentVideoData.previewUrl && useAudio) {
+        // Add audio track if preview is available
+        // Prioritize AAC for iMessage compatibility, MP3 as fallback
+        // WebM with opus also supports audio but not iMessage-compatible
+        const supportsAudio = mimeType.includes('opus') || mimeType.includes('mp4') || mimeType.includes('aac') || mimeType.includes('quicktime');
+        
+        if (currentVideoData.previewUrl && supportsAudio) {
           try {
+            console.log('Attempting to add audio to export...');
             // Create a separate audio element for recording to avoid conflicts
             const recordingAudio = new Audio(currentVideoData.previewUrl);
             recordingAudio.crossOrigin = 'anonymous';
             recordingAudio.volume = currentVolume / 100; // Use volume from settings
             
+            // Wait for audio to be ready
             await new Promise((resolve, reject) => {
-              recordingAudio.onloadedmetadata = resolve;
-              recordingAudio.onerror = reject;
+              const timeout = setTimeout(() => reject(new Error('Audio load timeout')), 5000);
+              recordingAudio.onloadedmetadata = () => {
+                clearTimeout(timeout);
+                resolve(null);
+              };
+              recordingAudio.onerror = (e) => {
+                clearTimeout(timeout);
+                reject(e);
+              };
               recordingAudio.load();
             });
             
@@ -673,30 +704,44 @@
             const source = audioContext.createMediaElementSource(recordingAudio);
             const destination = audioContext.createMediaStreamDestination();
             
-            // Connect audio source to destination (but NOT to speakers to avoid double playback)
+            // Connect audio source to destination for recording
             source.connect(destination);
             
-            audioStream = destination.stream;
+            // Create a muted gain node to connect to speakers (so audio plays but silently)
+            const mutedGain = audioContext.createGain();
+            mutedGain.gain.value = 0; // Mute output to speakers
+            source.connect(mutedGain);
+            mutedGain.connect(audioContext.destination);
             
-            // Start playing the recording audio (silently)
+            const audioStream = destination.stream;
+            
+            console.log('Audio stream created with tracks:', audioStream.getAudioTracks().length);
+            
+            // Add audio track to video stream BEFORE starting recording
+            audioStream.getAudioTracks().forEach(track => {
+              console.log('Adding audio track:', track.id, track.label, track.enabled);
+              videoStream.addTrack(track);
+            });
+            
+            // Start playing the recording audio (muted)
             recordingAudio.currentTime = 0;
             await recordingAudio.play();
+            console.log('Audio playback started for recording');
             
             // Stop audio after duration
             setTimeout(() => {
               recordingAudio.pause();
               source.disconnect();
+              mutedGain.disconnect();
               audioContext.close();
             }, duration * 1000);
             
-            // Add audio track to video stream
-            audioStream.getAudioTracks().forEach(track => {
-              videoStream.addTrack(track);
-            });
           } catch (audioError) {
-            console.warn('Could not add audio to export:', audioError);
+            console.error('Could not add audio to export:', audioError);
             // Continue without audio if it fails
           }
+        } else {
+          console.log('Skipping audio:', { hasPreview: !!currentVideoData.previewUrl, supportsAudio });
         }
         
         const recorderOptions = {
@@ -704,9 +749,12 @@
           videoBitsPerSecond: 8000000 // Increased for better video quality
         };
         
-        // Only add audio settings if we're using a format that supports it
-        if (useAudio && videoStream.getAudioTracks().length > 0) {
+        // Only add audio settings if we're using a format that supports it and have audio tracks
+        if (videoStream.getAudioTracks().length > 0) {
           recorderOptions.audioBitsPerSecond = 192000; // Increased for better audio quality
+          console.log('Recorder configured with audio:', videoStream.getAudioTracks().length, 'tracks');
+        } else {
+          console.log('No audio tracks available for recording');
         }
         
         const recorder = new MediaRecorder(videoStream, recorderOptions);
@@ -750,20 +798,33 @@
               a.href = url;
               // Force .mp4 extension for better iOS/iMessage compatibility
               // If it's WebM, we should warn but iOS might not handle it well
-              const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+              // Determine file extension and ensure iMessage compatibility
+              let extension = 'mp4';
+              if (mimeType.includes('webm')) {
+                extension = 'webm';
+              } else if (mimeType.includes('quicktime')) {
+                extension = 'mov'; // QuickTime format
+              }
+              
               const filename = currentVideoData.title 
                 ? `${currentVideoData.title.replace(/[^a-z0-9]/gi, '_')}_monk_clip.${extension}`
                 : `monk_clip.${extension}`;
               
-              // For iMessage compatibility, always use .mp4 extension
-              // Note: If the actual format is WebM, this might cause issues
-              const iosFilename = filename.replace(/\.webm$/, '.mp4');
-              a.download = iosFilename;
-              
-              // Warn if using WebM format (not ideal for iOS)
+              // For iMessage compatibility, always use .mp4 extension if codec is H.264/AAC
+              // Only use .mov for QuickTime, but warn about WebM
+              let iosFilename = filename;
               if (extension === 'webm') {
-                console.warn('Exported as WebM format. For best iOS/iMessage compatibility, use Chrome or Edge browser which supports MP4.');
+                // WebM is not iMessage-compatible - warn user
+                console.error('❌ Exported as WebM format - NOT compatible with iMessage!');
+                console.error('Please use Chrome or Edge browser to get H.264/AAC MP4 format for iMessage compatibility.');
+                statusEl.textContent = '⚠️ Exported as WebM - not iMessage compatible. Use Chrome/Edge for MP4.';
+              } else if (mimeType.includes('avc1') || mimeType.includes('h264') || mimeType.includes('aac')) {
+                // H.264/AAC - perfect for iMessage
+                iosFilename = filename.replace(/\.(mov|webm)$/, '.mp4');
+                console.log('✅ Exported in iMessage-compatible format: H.264 video + AAC audio');
               }
+              
+              a.download = iosFilename;
               a.click();
               URL.revokeObjectURL(url);
               // Restore video state
