@@ -129,13 +129,23 @@
       transform: scale(0.8);
       transform-origin: center center;
     }
+    /* Twitch-like chat styles */
+    .twitch-card { background: #18181b; border-radius: 12px; border: 1px solid #27272a; }
+    .twitch-header { color: #e5e7eb; font-weight: 600; }
+    .twitch-msg { font-size: 13px; line-height: 1.35; color: #e5e7eb; }
+    .twitch-username { font-weight: 700; margin-right: 6px; }
+    .twitch-badge { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 3px; background: #9146ff22; border: 1px solid #9146ff55; margin-right: 6px; }
+    .twitch-scroll { max-height: 220px; overflow-y: auto; }
   </style>
 </head>
  <body class="min-h-full text-neutral-900">
   <header class="absolute top-0 left-0 pt-4 pl-4 z-10">
-    <a href="https://x.com/immike_wing" target="_blank" rel="noopener noreferrer" class="cursor-pointer transition-transform hover:scale-110 inline-block">
-      <img src="/Logo.png" alt="MonkMusic Logo" class="h-16 w-auto" />
-    </a>
+    <div class="flex items-center gap-3">
+      <a href="https://x.com/immike_wing" target="_blank" rel="noopener noreferrer" class="cursor-pointer transition-transform hover:scale-110 inline-block">
+        <img src="/Logo.png" alt="MonkMusic Logo" class="h-16 w-auto" />
+      </a>
+      <a id="customizeLink" href="/custom" class="text-sm text-neutral-400 hover:text-neutral-600 transition-colors">customize</a>
+    </div>
   </header>
   <div class="absolute top-0 right-0 pt-4 pr-4 z-10">
     <button id="settingsBtn" class="p-2 rounded-full hover:bg-neutral-100 transition-colors">
@@ -163,8 +173,9 @@
   <main class="flex items-center justify-center min-h-screen px-6 py-4">
 
     <!-- Form -->
-    <section class="grid gap-2 lg:grid-cols-5 items-center w-full max-w-6xl">
-      <div class="lg:col-span-2 apple-card p-4 sm:p-6 form-section">
+    <section class="grid gap-2 lg:grid-cols-5 items-center w-full max-w-6xl mx-auto">
+      <div id="leftCol" class="lg:col-span-2 flex flex-col gap-4 items-stretch">
+        <div class="apple-card p-4 sm:p-6 form-section">
         <label for="spotifyUrl" class="block text-sm font-bold text-neutral-700 mb-2">Spotify song URL</label>
         <input id="spotifyUrl" type="url" placeholder="https://open.spotify.com/track/..." class="apple-input mt-2 w-full px-4 py-2 text-neutral-900 placeholder-neutral-400 text-base" />
 
@@ -213,38 +224,178 @@
         </button>
 
         <p id="status" class="mt-3 text-sm text-neutral-500 hidden"></p>
+        </div>
+
+        <!-- Twitch-like AI Chat (will be shown on main page, hidden on custom) -->
+        <div id="chatContainer" class="w-full max-w-[420px] hidden">
+          <div class="p-3 twitch-card">
+            <div class="flex items-center justify-between">
+              <div class="twitch-header text-sm">monk chat</div>
+              <div id="chatStatus" class="text-xs text-neutral-400">idle</div>
+            </div>
+            <div id="chatMessages" class="twitch-scroll mt-3 space-y-2 pr-1"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Preview / Output -->
-      <div class="lg:col-span-3">
-        <div class="relative aspect-[9/16] w-full max-w-[420px] mx-auto rounded-[24px] overflow-hidden apple-card" id="videoStage" aria-label="Video stage preview">
-          <!-- Background video -->
-          <video id="monkVideo" class="absolute inset-0 w-full h-full object-cover" autoplay muted loop playsinline>
-            <source src="/Monk.mp4" type="video/mp4" id="monkVideoSource">
-          </video>
-          <!-- dim overlay -->
-          <div class="absolute inset-0 bg-slate-900/20" aria-hidden="true"></div>
-          <!-- media card (initially hidden until data fetched) -->
-          <div id="overlayCard" class="absolute top-[158px] left-[40px] right-[40px] translate-y-0 opacity-0 transition-all duration-300">
-            <!-- content injected by JS -->
+      <div class="lg:col-span-2 flex items-center justify-center">
+        <div class="relative aspect-[9/16] w-full max-w-[420px] rounded-[24px] overflow-hidden apple-card" id="videoStage" aria-label="Video stage preview">
+            <!-- Background video -->
+            <video id="monkVideo" class="absolute inset-0 w-full h-full object-cover" autoplay muted loop playsinline>
+              <source src="/Monk.mp4" type="video/mp4" id="monkVideoSource">
+            </video>
+            <!-- dim overlay -->
+            <div class="absolute inset-0 bg-slate-900/20" aria-hidden="true"></div>
+            <!-- media card (initially hidden until data fetched) -->
+            <div id="overlayCard" class="absolute top-[158px] left-[40px] right-[40px] translate-y-0 opacity-0 transition-all duration-300">
+              <!-- content injected by JS -->
+            </div>
+            <!-- radial progress mock during generation -->
+            <div id="progressWrap" class="absolute top-6 right-4 opacity-0 transition-opacity">
+              <svg viewBox="0 0 100 100" class="w-14 h-14">
+                <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"></circle>
+                <circle id="progressCircle" cx="50" cy="50" r="44" stroke="#34d399" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="276.46" stroke-dashoffset="276.46"/>
+              </svg>
+            </div>
           </div>
-          <!-- radial progress mock during generation -->
-          <div id="progressWrap" class="absolute top-6 right-4 opacity-0 transition-opacity">
-            <svg viewBox="0 0 100 100" class="w-14 h-14">
-              <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"></circle>
-              <circle id="progressCircle" cx="50" cy="50" r="44" stroke="#34d399" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="276.46" stroke-dashoffset="276.46"/>
-            </svg>
-          </div>
-
     </section>
   </main>
 
   <!-- Disclaimer -->
-  <footer class="absolute bottom-(10) left-0 p-4 z-10">
-    <p class="text-xs text-neutral-200">90% of the songs should work but theres a 10% chance it fucks up</p>
+  <footer id="disclaimer" class="absolute bottom-4 left-4 z-10">
+    <p class="text-xs text-neutral-400">90% of the songs should work but theres a 10% chance it fucks up</p>
   </footer>
 
   <script>
+    // Toggle header link text/target between main and custom routes
+    (function() {
+      try {
+        const customizeLink = document.getElementById('customizeLink');
+        if (customizeLink) {
+          if (location.pathname.startsWith('/custom')) {
+            customizeLink.textContent = 'curate music';
+            customizeLink.setAttribute('href', '/');
+          } else {
+            customizeLink.textContent = 'customize';
+            customizeLink.setAttribute('href', '/custom');
+          }
+        }
+      } catch (_) {}
+    })();
+
+    const isCustom = location.pathname.startsWith('/custom');
+
+    // Disable scrolling on main page
+    (function() {
+      try {
+        if (!isCustom) {
+          document.body.style.overflow = 'hidden';
+          document.documentElement.style.overflow = 'hidden';
+        }
+      } catch (_) {}
+    })();
+
+    // Ensure disclaimer is absolute bottom-left of PAGE on /custom
+    (function() {
+      try {
+        if (isCustom) {
+          // Ensure body has relative positioning so absolute elements are relative to page
+          document.body.style.position = 'relative';
+          document.body.style.minHeight = '108vh';
+          
+          const dl = document.getElementById('disclaimer');
+          if (dl) {
+            dl.style.position = 'absolute';
+            dl.style.left = '1rem';
+            dl.style.bottom = '0';
+            dl.style.paddingBottom = '1rem';
+          }
+        }
+      } catch (_) {}
+    })();
+
+    // On main page, keep only Bodhi character; on /custom keep all
+    (function() {
+      try {
+        if (!isCustom) {
+          // Make monk video 20% smaller
+          const videoStage = document.getElementById('videoStage');
+          if (videoStage) {
+            videoStage.style.transform = 'scale(0.8)';
+            videoStage.style.transformOrigin = 'center center';
+          }
+          // Ensure no horizontal nudge so the layout remains centered
+          const leftCol = document.getElementById('leftCol');
+          if (leftCol) {
+            leftCol.style.transform = 'none';
+          }
+          const container = document.querySelector('div.flex.gap-4');
+          if (!container) return;
+          const radios = container.querySelectorAll('input[name="character"]');
+          radios.forEach((radio) => {
+            if (radio.value !== 'Monk.mp4') {
+              const label = radio.closest('label');
+              if (label && label.parentElement) label.parentElement.removeChild(label);
+            }
+          });
+          // Ensure Bodhi is selected
+          const bodhi = container.querySelector('input[name="character"][value="Monk.mp4"]');
+          if (bodhi) bodhi.checked = true;
+        }
+      } catch (_) {}
+    })();
+
+    // Show/hide chat container based on route
+    (function() {
+      try {
+        const chatContainer = document.getElementById('chatContainer');
+        if (chatContainer) {
+          if (isCustom) {
+            // Hide chat on custom page
+            chatContainer.classList.add('hidden');
+          } else {
+            // Show chat on main page
+            chatContainer.classList.remove('hidden');
+            // Match visual width to scaled form card on main page
+            chatContainer.classList.add('mx-auto');
+            chatContainer.style.maxWidth = '450px';
+            chatContainer.style.transform = 'scale(0.8)';
+            chatContainer.style.transformOrigin = 'center center';
+          }
+        }
+      } catch (_) {}
+    })();
+
+    // On main page, remove Comments, Character, and Rating sections entirely
+    (function() {
+      try {
+        if (!isCustom) {
+          // Remove Comments block
+          const reviewEl = document.getElementById('review');
+          if (reviewEl) {
+            const block = reviewEl.closest('.mt-4');
+            if (block && block.parentElement) block.parentElement.removeChild(block);
+          }
+          // Remove Character selection block
+          const anyCharacter = document.querySelector('input[name="character"]');
+          if (anyCharacter) {
+            const block = anyCharacter.closest('.mt-4');
+            if (block && block.parentElement) block.parentElement.removeChild(block);
+          }
+          // Remove Rating block
+          const ratingEl = document.getElementById('ratingRange');
+          if (ratingEl) {
+            const block = ratingEl.closest('.mt-4');
+            if (block && block.parentElement) block.parentElement.removeChild(block);
+          }
+          // Remove Download MP4 button
+          const dlBtn = document.getElementById('downloadBtn');
+          if (dlBtn && dlBtn.parentElement) dlBtn.parentElement.removeChild(dlBtn);
+        }
+      } catch (_) {}
+    })();
+
     const urlInput = document.getElementById('spotifyUrl');
     const reviewInput = document.getElementById('review');
     const charCount = document.getElementById('charCount');
@@ -267,6 +418,9 @@
     let currentVideoData = null; // Store video data for export
     let currentVolume = 30; // Default volume 30%
     let audioLoopEnabled = false; // Default no loop
+    let chatDebounce = null;
+    const chatMessagesEl = document.getElementById('chatMessages');
+    const chatStatusEl = document.getElementById('chatStatus');
     
     // Settings toggle
     settingsBtn.addEventListener('click', (e) => {
@@ -339,12 +493,16 @@
       }
     }
 
-    reviewInput.addEventListener('input', () => {
-      charCount.textContent = `${reviewInput.value.length}/100`;
-    });
-    ratingRange.addEventListener('input', () => {
-      ratingValue.textContent = Number(ratingRange.value).toFixed(1);
-    });
+    if (reviewInput && charCount) {
+      reviewInput.addEventListener('input', () => {
+        charCount.textContent = `${reviewInput.value.length}/100`;
+      });
+    }
+    if (ratingRange && ratingValue) {
+      ratingRange.addEventListener('input', () => {
+        ratingValue.textContent = Number(ratingRange.value).toFixed(1);
+      });
+    }
 
     function parseSpotify(url) {
       try {
@@ -448,6 +606,73 @@
         </div>`
     }
 
+    function appendChatMessage({ user, color = '#a970ff', badges = [], text }) {
+      if (!chatMessagesEl) return;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'twitch-msg flex items-start';
+      const badgeEls = badges.includes('verified') ? '<span class="twitch-badge">✓</span>' : '';
+      wrapper.innerHTML = `
+        ${badgeEls}
+        <span class="twitch-username" style="color:${color}">${user}</span>
+        <span class="whitespace-pre-wrap">${text}</span>
+      `;
+      chatMessagesEl.appendChild(wrapper);
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    }
+
+    async function playChatMessagesSequentially(messages, delayMs = 1000) {
+      if (!Array.isArray(messages) || messages.length === 0) return;
+      // Clear first for a fresh thread
+      if (chatMessagesEl) chatMessagesEl.innerHTML = '';
+      for (let i = 0; i < messages.length; i++) {
+        appendChatMessage(messages[i]);
+        // Wait between lines, but skip waiting after the last line
+        if (i < messages.length - 1) {
+          await new Promise(r => setTimeout(r, delayMs));
+        }
+      }
+    }
+
+    async function generateMonkThoughtsForUrl(rawUrl) {
+      try {
+        if (!rawUrl) return;
+        const trackId = parseSpotify(rawUrl);
+        if (!trackId) return;
+        chatStatusEl.textContent = 'typing…';
+
+        const response = await fetch(`/api/spotify?trackId=${encodeURIComponent(trackId)}`);
+        if (!response.ok) throw new Error('spotify lookup failed');
+        const data = await response.json();
+        const payload = {
+          title: data?.name,
+          artist: Array.isArray(data?.artists) ? data.artists.map(a => a.name).join(', ') : '',
+          genres: Array.isArray(data?.album?.genres) ? data.album.genres : [],
+          spotifyUrl: rawUrl,
+          previewUrl: data?.preview_url || null
+        };
+
+        const ai = await fetch('/api/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!ai.ok) throw new Error('ai review failed');
+        const { messages = [] } = await ai.json();
+
+        if (messages.length === 0) {
+          appendChatMessage({ user: 'monk', text: 'hmm… nothing to say?', color: '#a970ff' });
+        } else {
+          // Play messages with 1s interval
+          await playChatMessagesSequentially(messages, 1000);
+        }
+        chatStatusEl.textContent = 'ready';
+      } catch (err) {
+        console.warn('chat generation error:', err);
+        chatStatusEl.textContent = 'error';
+        appendChatMessage({ user: 'monk', text: 'cant think rn 🤔', color: '#a970ff' });
+      }
+    }
+
     async function fetchSongData(spotifyUrl, userReview) {
       const trackId = parseSpotify(spotifyUrl);
       if (!trackId) {
@@ -534,6 +759,7 @@
       let savedCurrentTime = 0;
       let wasPlaying = false;
       let savedMuted = false;
+      let savedPlaybackRate = 1.0;
       
       try {
         const videoStage = document.getElementById('videoStage');
@@ -603,10 +829,15 @@
         savedCurrentTime = exportVideo.currentTime;
         wasPlaying = !exportVideo.paused;
         savedMuted = exportVideo.muted;
+        savedPlaybackRate = exportVideo.playbackRate;
         
-        // Ensure video is paused and muted for export
+        // Ensure video is paused, muted, and at normal speed for export
         exportVideo.pause();
         exportVideo.muted = true;
+        exportVideo.playbackRate = 1.0; // Ensure normal playback speed
+        
+        // Wait a moment to ensure video is fully paused
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         const processingVideo = exportVideo;
         
@@ -807,7 +1038,7 @@
           console.error('MediaRecorder error:', recorderError);
         };
         
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
           recorder.onstop = () => {
             if (recorderError) {
               downloadBtn.innerHTML = originalText;
@@ -860,6 +1091,7 @@
               // Restore video state
               processingVideo.currentTime = savedCurrentTime;
               processingVideo.muted = savedMuted;
+              processingVideo.playbackRate = savedPlaybackRate;
               if (wasPlaying) {
                 processingVideo.play().catch(() => {}); // Ignore play errors
               }
@@ -882,7 +1114,30 @@
             return;
           }
           
+          // Ensure video is paused and at normal speed before seeking
+          processingVideo.pause();
+          processingVideo.playbackRate = 1.0;
+          
+          // Small delay to ensure pause is fully processed
+          await new Promise(resolve => setTimeout(resolve, 150));
+          
+          // Seek to start and wait for seek to complete
           processingVideo.currentTime = 0;
+          await new Promise((resolveSeek) => {
+            const onSeeked = () => {
+              processingVideo.removeEventListener('seeked', onSeeked);
+              processingVideo.pause(); // Ensure it stays paused
+              resolveSeek();
+            };
+            processingVideo.addEventListener('seeked', onSeeked);
+            
+            // Safety timeout
+            setTimeout(() => {
+              processingVideo.removeEventListener('seeked', onSeeked);
+              processingVideo.pause();
+              resolveSeek();
+            }, 300);
+          });
           
           let frame = 0;
           const totalFrames = duration * fps;
@@ -904,6 +1159,9 @@
             isRendering = true;
             
             try {
+              // Ensure video is paused before seeking
+              processingVideo.pause();
+              
               // Seek to frame time
               const targetTime = frame / fps;
               processingVideo.currentTime = targetTime;
@@ -912,6 +1170,8 @@
               await new Promise((resolveSeek) => {
                 const onSeeked = () => {
                   processingVideo.removeEventListener('seeked', onSeeked);
+                  // Ensure video stays paused after seek
+                  processingVideo.pause();
                   resolveSeek();
                 };
                 processingVideo.addEventListener('seeked', onSeeked);
@@ -919,6 +1179,8 @@
                 // Safety timeout
                 setTimeout(() => {
                   processingVideo.removeEventListener('seeked', onSeeked);
+                  // Ensure video stays paused
+                  processingVideo.pause();
                   resolveSeek();
                 }, 200);
               });
@@ -981,6 +1243,7 @@
           if (restoreVideo) {
             restoreVideo.currentTime = savedCurrentTime;
             restoreVideo.muted = savedMuted;
+            restoreVideo.playbackRate = savedPlaybackRate;
             if (wasPlaying) {
               restoreVideo.play().catch(() => {});
             }
@@ -999,7 +1262,7 @@
 
     async function generate() {
       const url = urlInput.value.trim();
-      const review = reviewInput.value.trim();
+      const review = reviewInput ? reviewInput.value.trim() : '';
       overlayCard.innerHTML = skeletonCard();
       overlayCard.style.opacity = '1';
       statusEl.classList.remove('hidden');
@@ -1014,9 +1277,39 @@
         }
 
         const meta = await fetchSongData(url, review);
-        let rating = parseFloat(ratingRange.value);
+        let rating = ratingRange ? parseFloat(ratingRange.value) : NaN;
+        let overlayComment = review || '';
+        
+        // On main page only: fetch AI-generated comment and score for overlay
+        if (!isCustom) {
+          try {
+            const overlayResponse = await fetch('/api/overlay-review', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: meta.title,
+                artist: meta.artist,
+                genres: [],
+                spotifyUrl: url,
+                previewUrl: meta.previewUrl || null
+              })
+            });
+            if (overlayResponse.ok) {
+              const overlayData = await overlayResponse.json();
+              if (overlayData.comment) {
+                overlayComment = overlayData.comment;
+              }
+              if (typeof overlayData.score === 'number' && !isNaN(overlayData.score)) {
+                rating = Math.max(0, Math.min(10, overlayData.score));
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to fetch overlay review:', err);
+          }
+        }
+        
         if (Number.isNaN(rating)) rating = computeRating(review);
-        const payload = { ...meta, rating };
+        const payload = { ...meta, review: overlayComment, rating };
         overlayCard.innerHTML = renderCard(payload);
         statusEl.textContent = 'Generating clip…';
 
@@ -1040,6 +1333,13 @@
           }
         }
 
+        // MAIN PAGE ONLY: Trigger AI chat AFTER overlay is shown and audio started
+        if (!isCustom) {
+          setTimeout(() => {
+            generateMonkThoughtsForUrl(url).catch(() => {});
+          }, 200);
+        }
+
         const result = await simulateVideoRender(payload);
 
         statusEl.textContent = 'monk is ready';
@@ -1053,6 +1353,7 @@
     }
 
     generateBtn.addEventListener('click', generate);
+    // Removed auto-generation on input/paste so AI triggers only on click in main port
     
     if (downloadBtn) {
       downloadBtn.addEventListener('click', exportVideo);
