@@ -620,7 +620,7 @@
       chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
     }
 
-    async function playChatMessagesSequentially(messages, delayMs = 1000) {
+    async function playChatMessagesSequentially(messages, delayMs = 2000) {
       if (!Array.isArray(messages) || messages.length === 0) return;
       // Clear first for a fresh thread
       if (chatMessagesEl) chatMessagesEl.innerHTML = '';
@@ -662,8 +662,8 @@
         if (messages.length === 0) {
           appendChatMessage({ user: 'monk', text: 'hmm… nothing to say?', color: '#a970ff' });
         } else {
-          // Play messages with 1s interval
-          await playChatMessagesSequentially(messages, 1000);
+          // Play messages with 2s interval
+          await playChatMessagesSequentially(messages, 2000);
         }
         chatStatusEl.textContent = 'ready';
       } catch (err) {
